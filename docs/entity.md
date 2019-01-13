@@ -29,7 +29,6 @@
   * [Standard View](#standard-view)
     * [Single component standard view](#single-component-standard-view)
     * [Multi component standard view](#multi-component-standard-view)
-  * [Persistent View](#persistent-view)
   * [Runtime View](#runtime-view)
   * [Types: const, non-const and all in between](#types-const-non-const-and-all-in-between)
   * [Give me everything](#give-me-everything)
@@ -809,87 +808,15 @@ view can only iterate entities and their components, then read or update the
 data members of the latter.<br/>
 It is a subtle difference that can help designing a better software sometimes.
 
-There are mainly three kinds of views: standard (also known as `view`),
-persistent (also known as `persistent_view`), and runtime (also known as
-`runtime_view`).<br/>
-All of them have pros and cons to take in consideration. In particular:
+There are mainly two kinds of views: standard (also known as `view`) and runtime
+(also known as `runtime_view`). A standard view can be used when the types of
+the components to iterate are known at compile-time. Use a runtime view
+otherwise and set them during execution.
 
-* Standard views:
-
-  Pros:
-
-  * They work out-of-the-box and don't require any dedicated data structure.
-  * Creating and destroying them isn't expensive at all because they don't have
-    any type of initialization.
-  * They are the best tool for iterating a single component.
-  * They are the best tool for iterating multiple components when one of them is
-    assigned to a significantly low number of entities.
-  * They don't affect any other operations of the registry.
-
-  Cons:
-
-  * Their performance tend to degenerate when the number of components to
-    iterate grows up and the most of the entities have all of them.
-
-* Persistent views:
-
-  Pros:
-
-  * Once prepared, creating and destroying them isn't expensive at all because
-    they don't have any type of initialization.
-  * They are the best tool for iterating multiple components when most entities
-    have them all.
-  * They are also the only type of views that supports filters without incurring
-    in a loss of performance during iterations.
-
-  Cons:
-
-  * They have dedicated data structures and thus affect the memory usage to a
-    minimal extent.
-  * If not previously initialized, the first time they are used they go through
-    an initialization step that is slightly more expensive.
-  * They affect to a minimum the creation and destruction of entities and
-    components, as well as the sort functionalities. In other terms: the more
-    persistent views there will be, the less performing will be creating and
-    destroying entities and components or sorting a pool.
-
-* Runtime views:
-
-  Pros:
-
-  * Their lists of components are defined at runtime and not at compile-time.
-  * Creating and destroying them isn't expensive at all because they don't have
-    any type of initialization.
-  * They are the best tool for things like plugin systems and mods in general.
-  * They don't affect any other operations of the registry.
-
-  Cons:
-
-  * Their performances are definitely lower than those of all the other views,
-    although they are still usable and sufficient for most of the purposes.
-
-To sum up and as a rule of thumb:
-
-* Use a standard view to iterate entities and components for a single type.
-* Use a standard view to iterate entities and components for multiple types when
-  a significantly low number of entities have one of the components, persistent
-  views won't add much in this case.
-* Use a standard view in all those cases where a persistent view would give a
-  boost to performance but the iteration isn't performed frequently or isn't on
-  a critical path.
-* Use a persistent view when you want to iterate multiple components and each
-  component is assigned to a great number of entities but the intersection
-  between the sets of entities is small.
-* Use a persistent view when you want to set more complex filters that would
-  translate otherwise in a bunch of `if`s within a loop.
-* Use a persistent view in all the cases where a standard view doesn't fit well.
-* Finally, in case you don't know at compile-time what are the components to
-  use, choose a runtime view and set them during execution.
-
-To easily iterate entities and components, all the views offer the common
+To easily iterate entities and components, both the views offer the common
 `begin` and `end` member functions that allow users to use a view in a typical
-range-for loop. Almost all the views offer also a *more functional* `each`
-member function that accepts a callback for convenience.<br/>
+range-for loop. Standard views offer also a *more functional* `each` member
+function that accepts a callback for convenience.<br/>
 Continue reading for more details or refer to the inline documentation.
 
 ## Standard View
@@ -997,82 +924,6 @@ registry.view<position, velocity>().each([](auto entity, auto &pos, auto &vel) {
 The `each` member function is highly optimized. Unless users want to iterate
 only entities or get only some of the components, using `each` should be the
 preferred approach.
-
-**Note**: prefer the `get` member function of a view instead of the `get` member
-function template of a registry during iterations, if possible. However, keep in
-mind that it works only with the components of the view itself.
-
-## Persistent View
-
-A persistent view returns all the entities and only the entities that have at
-least the given components and respect the given filters. Moreover, it's
-guaranteed that the entity list is tightly packed in memory for fast
-iterations.<br/>
-In general, persistent views don't stay true to the order of any set of
-components unless users explicitly sort them.
-
-Persistent views are used mainly to iterate multiple components at once:
-
-```cpp
-auto view = registry.persistent_view<position, velocity>();
-```
-
-Filtering entities by components is also supported:
-
-```cpp
-auto view = registry.persistent_view<position, velocity>(entt::exclude<renderable>);
-```
-
-In this case, the view will return all the entities that have both components
-`position` and `velocity` but don't have component `renderable`.<br/>
-Exclusive filters (ie the entities that have either `position` or `velocity`)
-aren't directly supported for performance reasons. Similarly, a filter cannot be
-applied to a persistent view with an empty template parameters list.
-
-There is no need to store views around for they are extremely cheap to
-construct, even though they can be copied without problems and reused freely. In
-fact, they return newly created and correctly initialized iterators whenever
-`begin` or `end` are invoked.<br/>
-That being said, persistent views perform an initialization step the very first
-time they are constructed and this could be quite costly. To avoid it, consider
-creating them when no components have been assigned yet. If the registry is
-empty, preparation is extremely fast.
-
-A persistent view offers a bunch of functionalities to get the number of
-entities it's going to return, a raw access to the entity list and the
-possibility to sort the underlying data structures according to the order of one
-of the components for which it has been constructed. It's also possible to ask a
-view if it contains a given entity.<br/>
-Refer to the inline documentation for all the details.
-
-To iterate a persistent view, either use it in a range-for loop:
-
-```cpp
-auto view = registry.persistent_view<position, velocity>();
-
-for(auto entity: view) {
-    // a component at a time ...
-    auto &position = view.get<position>(entity);
-    auto &velocity = view.get<velocity>(entity);
-
-    // ... or multiple components at once
-    auto &[pos, vel] = view.get<position, velocity>(entity);
-
-    // ...
-}
-```
-
-Or rely on the `each` member function to iterate entities and get all their
-components at once:
-
-```cpp
-registry.persistent_view<position, velocity>().each([](auto entity, auto &pos, auto &vel) {
-    // ...
-});
-```
-
-The `each` member function is highly optimized. Unless users want to iterate
-only entities, using `each` should be the preferred approach.
 
 **Note**: prefer the `get` member function of a view instead of the `get` member
 function template of a registry during iterations, if possible. However, keep in

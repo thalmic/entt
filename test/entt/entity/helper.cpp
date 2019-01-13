@@ -11,9 +11,6 @@ TEST(Helper, AsView) {
 
     ([](entt::view<entity_type, int, char>) {})(entt::as_view{registry});
     ([](entt::view<entity_type, const double>) {})(entt::as_view{cregistry});
-
-    ([](entt::persistent_view<entity_type, int, char>) {})(entt::as_view{registry});
-    ([](entt::persistent_view<entity_type, const double, const float>) {})(entt::as_view{cregistry});
 }
 
 TEST(Helper, Dependency) {

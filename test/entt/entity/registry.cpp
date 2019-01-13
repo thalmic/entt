@@ -396,46 +396,10 @@ TEST(Registry, StandardView) {
     ASSERT_EQ(cnt, decltype(mview)::size_type{2});
 }
 
-TEST(Registry, PersistentView) {
-    entt::registry<> registry;
-
-    const auto e0 = registry.create();
-    registry.assign<int>(e0, 0);
-    registry.assign<char>(e0, 'c');
-
-    const auto e1 = registry.create();
-    registry.assign<int>(e1, 0);
-
-    const auto e2 = registry.create();
-    registry.assign<int>(e2, 0);
-    registry.assign<char>(e2, 'c');
-
-    auto view = registry.persistent_view<int, char>();
-    decltype(view)::size_type cnt{0};
-    view.each([&cnt](auto...) { ++cnt; });
-
-    ASSERT_EQ(cnt, decltype(view)::size_type{2});
-}
-
 TEST(Registry, CleanStandardViewAfterReset) {
     entt::registry<> registry;
     auto view = registry.view<int>();
     registry.assign<int>(registry.create(), 0);
-
-    ASSERT_EQ(view.size(), entt::registry<>::size_type{1});
-
-    registry.reset();
-
-    ASSERT_EQ(view.size(), entt::registry<>::size_type{0});
-}
-
-TEST(Registry, CleanPersistentViewAfterReset) {
-    entt::registry<> registry;
-    auto view = registry.persistent_view<int, char>();
-
-    const auto entity = registry.create();
-    registry.assign<int>(entity, 0);
-    registry.assign<char>(entity, 'c');
 
     ASSERT_EQ(view.size(), entt::registry<>::size_type{1});
 
@@ -659,15 +623,19 @@ TEST(Registry, DestroyByComponents) {
     ASSERT_FALSE(registry.valid(e2));
 }
 
-TEST(Registry, SignalsOnAccommodate) {
+TEST(Registry, SignalsOnAssignOrReplace) {
     entt::registry<> registry;
-    const auto entity = registry.create();
-    const auto view = registry.persistent_view<int, char>();
+    listener listener;
 
+    registry.construction<char>().connect<&listener::incr<int>>(&listener);
+    registry.construction<char>().connect<&listener::incr<char>>(&listener);
+
+    const auto entity = registry.create();
     registry.assign<int>(entity);
     registry.assign_or_replace<char>(entity);
 
-    ASSERT_FALSE((view.empty()));
+    ASSERT_EQ(listener.counter, 2);
+    ASSERT_EQ(listener.last, entity);
 }
 
 TEST(Registry, CreateManyEntitiesAtOnce) {
@@ -693,59 +661,6 @@ TEST(Registry, CreateManyEntitiesAtOnce) {
 
     ASSERT_EQ(registry.entity(entities[2]), entt::registry<>::entity_type{2});
     ASSERT_EQ(registry.version(entities[2]), entt::registry<>::version_type{0});
-}
-
-TEST(Registry, PersistentViewInterleaved) {
-    entt::registry<> registry;
-    typename entt::registry<>::entity_type entity = entt::null;
-
-    entity = registry.create();
-    registry.assign<int>(entity);
-    registry.assign<char>(entity);
-
-    const auto view = registry.persistent_view<int, char>();
-
-    entity = registry.create();
-    registry.assign<int>(entity);
-    registry.assign<char>(entity);
-
-    decltype(view)::size_type cnt{0};
-    view.each([&cnt](auto...) { ++cnt; });
-
-    ASSERT_EQ(cnt, decltype(view)::size_type{2});
-}
-
-TEST(Registry, PersistentViewSortInterleaved) {
-    entt::registry<> registry;
-    const auto view = registry.persistent_view<int, char>();
-
-    const auto e0 = registry.create();
-    registry.assign<int>(e0, 0);
-    registry.assign<char>(e0, '0');
-
-    const auto e1 = registry.create();
-    registry.assign<int>(e1, 1);
-    registry.assign<char>(e1, '1');
-
-    registry.sort<int>([](auto lhs, auto rhs) { return lhs > rhs; });
-    registry.sort<char>([](auto lhs, auto rhs) { return lhs < rhs; });
-
-    const auto e2 = registry.create();
-    registry.assign<int>(e2, 2);
-    registry.assign<char>(e2, '2');
-
-    view.each([e0, e1, e2](const auto entity, const auto &i, const auto &c) {
-        if(entity == e0) {
-            ASSERT_EQ(i, 0);
-            ASSERT_EQ(c, '0');
-        } else if(entity == e1) {
-            ASSERT_EQ(i, 1);
-            ASSERT_EQ(c, '1');
-        } else if(entity == e2) {
-            ASSERT_EQ(i, 2);
-            ASSERT_EQ(c, '2');
-        }
-    });
 }
 
 TEST(Registry, Clone) {

@@ -221,30 +221,6 @@ TEST(Benchmark, IterateTwoComponents1MOne) {
     });
 }
 
-TEST(Benchmark, IterateTwoComponentsPersistent1M) {
-    entt::registry<> registry;
-    registry.persistent_view<position, velocity>();
-
-    std::cout << "Iterating over 1000000 entities, two components, persistent view" << std::endl;
-
-    for(std::uint64_t i = 0; i < 1000000L; i++) {
-        const auto entity = registry.create();
-        registry.assign<position>(entity);
-        registry.assign<velocity>(entity);
-    }
-
-    auto test = [&registry](auto func) {
-        timer timer;
-        registry.persistent_view<position, velocity>().each(func);
-        timer.elapsed();
-    };
-
-    test([](const auto &...) {});
-    test([](auto &... comp) {
-        ((comp.x = {}), ...);
-    });
-}
-
 TEST(Benchmark, IterateTwoComponentsRuntime1M) {
     entt::registry<> registry;
 
@@ -407,33 +383,6 @@ TEST(Benchmark, IterateFiveComponents1MOne) {
     auto test = [&registry](auto func) {
         timer timer;
         registry.view<position, velocity, comp<1>, comp<2>, comp<3>>().each(func);
-        timer.elapsed();
-    };
-
-    test([](const auto &...) {});
-    test([](auto &... comp) {
-        ((comp.x = {}), ...);
-    });
-}
-
-TEST(Benchmark, IterateFiveComponentsPersistent1M) {
-    entt::registry<> registry;
-    registry.persistent_view<position, velocity, comp<1>, comp<2>, comp<3>>();
-
-    std::cout << "Iterating over 1000000 entities, five components, persistent view" << std::endl;
-
-    for(std::uint64_t i = 0; i < 1000000L; i++) {
-        const auto entity = registry.create();
-        registry.assign<position>(entity);
-        registry.assign<velocity>(entity);
-        registry.assign<comp<1>>(entity);
-        registry.assign<comp<2>>(entity);
-        registry.assign<comp<3>>(entity);
-    }
-
-    auto test = [&registry](auto func) {
-        timer timer;
-        registry.persistent_view<position, velocity, comp<1>, comp<2>, comp<3>>().each(func);
         timer.elapsed();
     };
 
@@ -656,38 +605,6 @@ TEST(Benchmark, IterateTenComponents1MOne) {
     auto test = [&registry](auto func) {
         timer timer;
         registry.view<position, velocity, comp<1>, comp<2>, comp<3>, comp<4>, comp<5>, comp<6>, comp<7>, comp<8>>().each(func);
-        timer.elapsed();
-    };
-
-    test([](const auto &...) {});
-    test([](auto &... comp) {
-        ((comp.x = {}), ...);
-    });
-}
-
-TEST(Benchmark, IterateTenComponentsPersistent1M) {
-    entt::registry<> registry;
-    registry.persistent_view<position, velocity, comp<1>, comp<2>, comp<3>, comp<4>, comp<5>, comp<6>, comp<7>, comp<8>>();
-
-    std::cout << "Iterating over 1000000 entities, ten components, persistent view" << std::endl;
-
-    for(std::uint64_t i = 0; i < 1000000L; i++) {
-        const auto entity = registry.create();
-        registry.assign<position>(entity);
-        registry.assign<velocity>(entity);
-        registry.assign<comp<1>>(entity);
-        registry.assign<comp<2>>(entity);
-        registry.assign<comp<3>>(entity);
-        registry.assign<comp<4>>(entity);
-        registry.assign<comp<5>>(entity);
-        registry.assign<comp<6>>(entity);
-        registry.assign<comp<7>>(entity);
-        registry.assign<comp<8>>(entity);
-    }
-
-    auto test = [&registry](auto func) {
-        timer timer;
-        registry.persistent_view<position, velocity, comp<1>, comp<2>, comp<3>, comp<4>, comp<5>, comp<6>, comp<7>, comp<8>>().each(func);
         timer.elapsed();
     };
 

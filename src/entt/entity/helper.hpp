@@ -37,16 +37,6 @@ struct as_view final {
         return reg.template view<Component...>();
     }
 
-    /**
-     * @brief Conversion function from a registry to a persistent view.
-     * @tparam Component Types of components used to construct the view.
-     * @return A newly created persistent view.
-     */
-    template<typename... Component>
-    inline operator entt::persistent_view<Entity, Component...>() const {
-        return reg.template persistent_view<Component...>();
-    }
-
 private:
     registry_type &reg;
 };
