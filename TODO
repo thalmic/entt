@@ -21,6 +21,7 @@
 * events on replace, so that one can track updated components? indagate impact
 * tags revenge: if it's possible, reintroduce them but without a link to entities (see #169 for more details)
 * provide create with a pack of default constructible components to assign
+* allow to replace std:: with custom implementations
 
 Ready to go:
 * policy based views

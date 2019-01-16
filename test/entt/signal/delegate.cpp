@@ -111,9 +111,10 @@ TEST(Delegate, Comparison) {
     lhs.connect<&delegate_functor::operator()>(&other);
 
     ASSERT_EQ(lhs, (entt::delegate<int(int)>{entt::connect_arg<&delegate_functor::operator()>, &other}));
-    ASSERT_TRUE(lhs != rhs);
-    ASSERT_FALSE(lhs == rhs);
-    ASSERT_NE(lhs, rhs);
+    ASSERT_NE(lhs.instance(), rhs.instance());
+    ASSERT_FALSE(lhs != rhs);
+    ASSERT_TRUE(lhs == rhs);
+    ASSERT_EQ(lhs, rhs);
 
     lhs.reset();
 

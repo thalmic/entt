@@ -41,6 +41,7 @@ namespace entt {
  */
 template<typename Entity = std::uint32_t>
 class registry {
+    using view_family = family<struct internal_registry_view_family>;
     using component_family = family<struct internal_registry_component_family>;
     using component_signal_type = sigh<void(registry &, const Entity)>;
     using traits_type = entt_traits<Entity>;
@@ -867,7 +868,7 @@ public:
      */
     template<typename Component>
     void reset() {
-        sparse_set<Entity> &cpool = assure<Component>();
+        sparse_set<entity_type> &cpool = assure<Component>();
         auto &sigh = sighs[component_family::type<Component>].second;
 
         if(sigh.empty()) {
@@ -1008,22 +1009,71 @@ public:
      * of the entities have all the given components.
      *
      * @sa view
-     * @sa view<Entity, Component>
+     * @sa view<entity_type, Component>
      * @sa runtime_view
      *
      * @tparam Component Type of components used to construct the view.
      * @return A newly created standard view.
      */
-    template<typename... Component>
-    entt::view<Entity, Component...> view() {
-        return { &assure<Component>()... };
+    // TODO tmp
+    template<auto Has, auto... Exclude>
+    static void construct_if(sparse_set<entity_type> *direct, registry &reg, const entity_type entity) {
+        if((reg.*Has)(entity) && !((reg.*Exclude)(entity) || ...)) {
+            direct->construct(entity);
+        }
+    }
+    // TODO tmp
+    static void destroy_if(sparse_set<entity_type> *direct, registry &, const entity_type entity) {
+        if(direct->has(entity)) {
+            direct->destroy(entity);
+        }
+    }
+    template<typename... Component, typename... Exclude>
+    entt::view<entity_type, Component...> view(exclude<Exclude...> = {}) {
+        static_assert(sizeof...(Component));
+
+        if constexpr(sizeof...(Component) == 1 && sizeof...(Exclude) == 0) {
+            // TODO tmp
+            return { &assure<Component...>() };
+        } else {
+            // TODO tmp
+            const auto vtype = view_family::type<type_list<Component...>, type_list<Exclude...>>;
+
+            if(!(vtype < views.size())) {
+                views.resize(vtype+1);
+            }
+
+            if(!views[vtype]) {
+                views[vtype] = std::make_unique<sparse_set<entity_type>>();
+                auto *direct = views[vtype].get();
+
+                (assure<Component>(), ...);
+                (assure<Exclude>(), ...);
+                ((sighs[component_family::type<Component>].first.sink().template connect<&construct_if<&registry::has<Component...>, &registry::has<Exclude>...>>(direct)), ...);
+                ((sighs[component_family::type<Exclude>].second.sink().template connect<&construct_if<&registry::has<Component...>, &registry::has<Exclude>...>>(direct)), ...);
+                ((sighs[component_family::type<Exclude>].first.sink().template connect<&registry::destroy_if>(direct)), ...);
+                ((sighs[component_family::type<Component>].second.sink().template connect<&registry::destroy_if>(direct)), ...);
+
+                const auto *candidate = std::min({ static_cast<const sparse_set<entity_type> *>(&assure<Component>())... }, [](const auto *lhs, const auto *rhs) {
+                    return lhs->size() < rhs->size();
+                });
+
+                for(auto const entity: *candidate) {
+                    if(has<Component...>(entity) && !(has<Exclude>() || ...)) {
+                        direct->construct(entity);
+                    }
+                }
+            }
+
+            return { views[vtype].get(), &assure<Component>()... };
+        }
     }
 
     /*! @copydoc view */
-    template<typename... Component>
-    inline entt::view<Entity, Component...> view() const {
+    template<typename... Component, typename... Exclude>
+    inline entt::view<entity_type, Component...> view(exclude<Exclude...> = {}) const {
         static_assert(std::conjunction_v<std::is_const<Component>...>);
-        return const_cast<registry *>(this)->view<Component...>();
+        return const_cast<registry *>(this)->view<Component...>(exclude<Exclude...>{});
     }
 
     /**
@@ -1042,7 +1092,7 @@ public:
      * This is particularly well suited to plugin systems and mods in general.
      *
      * @sa view
-     * @sa view<Entity, Component>
+     * @sa view<entity_type, Component>
      * @sa runtime_view
      *
      * @tparam It Type of forward iterator.
@@ -1051,9 +1101,9 @@ public:
      * @return A newly created runtime view.
      */
     template<typename It>
-    entt::runtime_view<Entity> runtime_view(It first, It last) const {
+    entt::runtime_view<entity_type> runtime_view(It first, It last) const {
         static_assert(std::is_convertible_v<typename std::iterator_traits<It>::value_type, component_type>);
-        std::vector<const sparse_set<Entity> *> set(last - first);
+        std::vector<const sparse_set<entity_type> *> set(last - first);
 
         std::transform(first, last, set.begin(), [this](const component_type ctype) {
             return ctype < pools.size() ? pools[ctype].get() : nullptr;
@@ -1123,7 +1173,7 @@ public:
      *
      * @return A temporary object to use to take snasphosts.
      */
-    entt::snapshot<Entity> snapshot() const ENTT_NOEXCEPT {
+    entt::snapshot<entity_type> snapshot() const ENTT_NOEXCEPT {
         using follow_fn_type = entity_type(const registry &, const entity_type);
         const entity_type seed = available ? (next | (entities[next] & (traits_type::version_mask << traits_type::entity_shift))) : next;
 
@@ -1152,7 +1202,7 @@ public:
      *
      * @return A temporary object to use to load snasphosts.
      */
-    snapshot_loader<Entity> loader() ENTT_NOEXCEPT {
+    snapshot_loader<entity_type> loader() ENTT_NOEXCEPT {
         using assure_fn_type = void(registry &, const entity_type, const bool);
 
         assure_fn_type *assure = [](registry &registry, const entity_type entity, const bool destroyed) {
@@ -1180,8 +1230,9 @@ public:
     }
 
 private:
-    mutable std::vector<std::unique_ptr<sparse_set<Entity>>> pools;
+    mutable std::vector<std::unique_ptr<sparse_set<entity_type>>> pools;
     mutable std::vector<std::pair<component_signal_type, component_signal_type>> sighs;
+    mutable std::vector<std::unique_ptr<sparse_set<entity_type>>> views;
     std::vector<entity_type> entities;
     size_type available{};
     entity_type next{};

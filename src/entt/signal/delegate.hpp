@@ -220,14 +220,17 @@ public:
     }
 
     /**
-     * @brief Checks if the contents of the two delegates are different.
+     * @brief Checks if the connected functions differ.
+     *
+     * In case of member functions, the instances connected to the delegate
+     * are not verified by this operator. Use the instance member function
+     * instead.
+     *
      * @param other Delegate with which to compare.
-     * @return True if the two delegates are identical, false otherwise.
+     * @return False if the connected functions differ, true otherwise.
      */
     bool operator==(const delegate<Ret(Args...)> &other) const ENTT_NOEXCEPT {
-        auto *lhs = reinterpret_cast<const unsigned char *>(&storage);
-        auto *rhs = reinterpret_cast<const unsigned char *>(&other.storage);
-        return fn == other.fn && std::equal(lhs, lhs + sizeof(storage_type), rhs);
+        return fn == other.fn;
     }
 
 private:
@@ -237,12 +240,16 @@ private:
 
 
 /**
- * @brief Checks if the contents of the two delegates are different.
+ * @brief Checks if the connected functions differ.
+ *
+ * In case of member functions, the instances connected to the delegate are not
+ * verified by this operator. Use the `instance` member function instead.
+ *
  * @tparam Ret Return type of a function type.
  * @tparam Args Types of arguments of a function type.
  * @param lhs A valid delegate object.
  * @param rhs A valid delegate object.
- * @return True if the two delegates are different, false otherwise.
+ * @return True if the connected functions differ, false otherwise.
  */
 template<typename Ret, typename... Args>
 bool operator!=(const delegate<Ret(Args...)> &lhs, const delegate<Ret(Args...)> &rhs) ENTT_NOEXCEPT {

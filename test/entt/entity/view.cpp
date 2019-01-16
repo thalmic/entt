@@ -192,7 +192,7 @@ TEST(MultipleComponentView, Functionalities) {
     const auto e1 = registry.create();
     registry.assign<int>(e1);
 
-    ASSERT_FALSE(view.empty());
+    ASSERT_TRUE(view.empty());
 
     registry.assign<char>(e1);
 
