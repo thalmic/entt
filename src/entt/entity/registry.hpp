@@ -43,6 +43,7 @@ template<typename Entity = std::uint32_t>
 class registry {
     using view_family = family<struct internal_registry_view_family>;
     using component_family = family<struct internal_registry_component_family>;
+    using rebuild_signal_type = sigh<void(registry &, const typename component_family::family_type)>;
     using component_signal_type = sigh<void(registry &, const Entity)>;
     using traits_type = entt_traits<Entity>;
 
@@ -796,6 +797,7 @@ public:
     template<typename Component, typename Compare, typename Sort = std_sort, typename... Args>
     void sort(Compare compare, Sort sort = Sort{}, Args &&... args) {
         assure<Component>().sort(std::move(compare), std::move(sort), std::forward<Args>(args)...);
+        invalidate.publish(*this, component_family::type<Component>);
     }
 
     /**
@@ -831,6 +833,7 @@ public:
     template<typename To, typename From>
     void sort() {
         assure<To>().respect(assure<From>());
+        invalidate.publish(*this, component_family::type<To>);
     }
 
     /**
@@ -1016,9 +1019,9 @@ public:
      * @return A newly created standard view.
      */
     // TODO tmp
-    template<auto Has, auto... Exclude>
+    template<auto Has, typename... Exclude>
     static void construct_if(sparse_set<entity_type> *direct, registry &reg, const entity_type entity) {
-        if((reg.*Has)(entity) && !((reg.*Exclude)(entity) || ...)) {
+        if((reg.*Has)(entity) && !(reg.has<Exclude>(entity) || ...)) { //    !((reg.*Exclude)(entity) || ...)) {
             direct->construct(entity);
         }
     }
@@ -1028,12 +1031,28 @@ public:
             direct->destroy(entity);
         }
     }
+    // TODO
+    template<typename... Component>
+    static void refresh_if(sparse_set<Entity, std::array<typename sparse_set<Entity>::size_type, sizeof...(Component)>> *direct, registry &reg, const typename component_family::family_type ctype) {
+        auto index = sizeof...(Component);
+        decltype(index) cnt{};
+
+        ((index = (component_family::type<Component> == ctype) ? cnt++ : (static_cast<void>(++cnt), index)), ...);
+
+        if(index != sizeof...(Component)) {
+            auto begin = direct->sparse_set<Entity>::begin();
+            const auto &cpool = *reg.pools[ctype];
+
+            for(auto &&indexes: *direct) {
+                indexes[index] = cpool.get(*(begin++));
+            }
+        }
+    }
     template<typename... Component, typename... Exclude>
     entt::view<entity_type, Component...> view(exclude<Exclude...> = {}) {
         static_assert(sizeof...(Component));
 
         if constexpr(sizeof...(Component) == 1 && sizeof...(Exclude) == 0) {
-            // TODO tmp
             return { &assure<Component...>() };
         } else {
             // TODO tmp
@@ -1049,8 +1068,8 @@ public:
 
                 (assure<Component>(), ...);
                 (assure<Exclude>(), ...);
-                ((sighs[component_family::type<Component>].first.sink().template connect<&construct_if<&registry::has<Component...>, &registry::has<Exclude>...>>(direct)), ...);
-                ((sighs[component_family::type<Exclude>].second.sink().template connect<&construct_if<&registry::has<Component...>, &registry::has<Exclude>...>>(direct)), ...);
+                ((sighs[component_family::type<Component>].first.sink().template connect<&construct_if<&registry::has<Component...>, Exclude...>>(direct)), ...);
+                ((sighs[component_family::type<Exclude>].second.sink().template connect<&construct_if<&registry::has<Component...>, Exclude...>>(direct)), ...);
                 ((sighs[component_family::type<Exclude>].first.sink().template connect<&registry::destroy_if>(direct)), ...);
                 ((sighs[component_family::type<Component>].second.sink().template connect<&registry::destroy_if>(direct)), ...);
 
@@ -1065,7 +1084,8 @@ public:
                 }
             }
 
-            return { views[vtype].get(), &assure<Component>()... };
+            // TODO tmp
+            return { views[vtype].get(), {}, &assure<Component>()... };
         }
     }
 
@@ -1236,6 +1256,7 @@ private:
     std::vector<entity_type> entities;
     size_type available{};
     entity_type next{};
+    rebuild_signal_type invalidate;
 };
 
 

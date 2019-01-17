@@ -41,10 +41,12 @@ class view final {
 
     using view_type = sparse_set<Entity>;
     using pattern_type = std::tuple<pool_type<Component> *...>;
+    using difference_type = typename view_type::iterator_type::difference_type;
 
     // we could use pool_type<Component> *..., but vs complains about it and refuses to compile for unknown reasons (likely a bug)
-    view(view_type *direct, pool_type<Component> *... pools) ENTT_NOEXCEPT
+    view(view_type *direct, difference_type offset, pool_type<Component> *... pools) ENTT_NOEXCEPT
         : direct{direct},
+          offset{offset},
           pools{pools...}
     {}
 
@@ -66,34 +68,42 @@ public:
     view & operator=(view &&) = default;
 
     size_type size() const ENTT_NOEXCEPT {
+        // TODO offset
         return direct->size();
     }
 
     bool empty() const ENTT_NOEXCEPT {
+        // TODO offset
         return direct->empty();
     }
 
     const entity_type * data() const ENTT_NOEXCEPT {
+        // TODO offset
         return direct->data();
     }
 
     iterator_type begin() const ENTT_NOEXCEPT {
+        // TODO offset
         return direct->view_type::begin();
     }
 
     iterator_type end() const ENTT_NOEXCEPT {
+        // TODO offset
         return direct->view_type::end();
     }
 
     iterator_type find(const entity_type entity) const ENTT_NOEXCEPT {
+        // TODO offset
         return direct->find(entity);
     }
 
     entity_type operator[](const size_type pos) const ENTT_NOEXCEPT {
+        // TODO offset
         return direct->view_type::begin()[pos];
     }
 
     bool contains(const entity_type entity) const ENTT_NOEXCEPT {
+        // TODO offset
         return direct->has(entity) && (direct->view_type::data()[direct->view_type::get(entity)] == entity);
     }
 
@@ -112,6 +122,20 @@ public:
 
     template<typename Func>
     inline void each(Func func) const {
+        // TODO POC with wrong data (close to its final version, but for the pivot value)
+        //
+        // for(int i = 0; i < direct->size(); i++) {
+        //     auto raw = std::make_tuple(pool<Component>()->begin()...);
+        //
+        //     if constexpr(std::is_invocable_v<Func, std::add_lvalue_reference_t<Component>...>) {
+        //         func(*(std::get<decltype(pool<Component>()->begin())>(raw)++)...);
+        //     } else {
+        //         func(direct->data()[i], *(std::get<decltype(pool<Component>()->begin())>(raw)++)...);
+        //     }
+        // }
+
+        // TODO offset
+
         std::for_each(direct->view_type::begin(), direct->view_type::end(), [func = std::move(func), this](const auto entity) mutable {
             if constexpr(std::is_invocable_v<Func, std::add_lvalue_reference_t<Component>...>) {
                 func(pool<Component>()->get(entity)...);
@@ -123,11 +147,13 @@ public:
 
     template<typename Comp>
     void sort() const {
+        // TODO offset
         direct->respect(*pool<Comp>());
     }
 
 private:
     view_type *direct;
+    difference_type offset;
     const pattern_type pools;
 };
 
