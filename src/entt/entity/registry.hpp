@@ -1085,7 +1085,7 @@ public:
             }
 
             // TODO tmp
-            return entt::view<entity_type, Component...>{ views[vtype].get(), {}, &assure<Component>()... };
+            return entt::view<entity_type, Component...>{views[vtype].get(), 0, &assure<Component>()...};
         }
     }
 
