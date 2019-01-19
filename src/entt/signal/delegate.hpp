@@ -80,7 +80,7 @@ class delegate;
  * @tparam Args Types of arguments of a function type.
  */
 template<typename Ret, typename... Args>
-class delegate<Ret(Args...)> final {
+class delegate<Ret(Args...)> {
     using storage_type = std::aligned_storage_t<sizeof(void *), alignof(void *)>;
     using proto_fn_type = Ret(storage_type &, Args...);
 

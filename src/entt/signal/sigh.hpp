@@ -48,14 +48,14 @@ struct invoker<void(Args...), Collector> {
 
 
 template<typename Ret>
-struct null_collector final {
+struct null_collector {
     using result_type = Ret;
     bool operator()(result_type) const ENTT_NOEXCEPT { return true; }
 };
 
 
 template<>
-struct null_collector<void> final {
+struct null_collector<void> {
     using result_type = void;
     bool operator()() const ENTT_NOEXCEPT { return true; }
 };
@@ -66,7 +66,7 @@ struct default_collector;
 
 
 template<typename Ret, typename... Args>
-struct default_collector<Ret(Args...)> final {
+struct default_collector<Ret(Args...)> {
     using collector_type = null_collector<Ret>;
 };
 
@@ -124,7 +124,7 @@ struct sigh;
  * @tparam Args Types of arguments of a function type.
  */
 template<typename Ret, typename... Args>
-class sink<Ret(Args...)> final {
+class sink<Ret(Args...)> {
     /*! @brief A signal is allowed to create sinks. */
     template<typename, typename>
     friend struct sigh;
@@ -248,7 +248,7 @@ private:
  * @tparam Collector Type of collector to use, if any.
  */
 template<typename Ret, typename... Args, typename Collector>
-struct sigh<Ret(Args...), Collector> final: private internal::invoker<Ret(Args...), Collector> {
+struct sigh<Ret(Args...), Collector>: private internal::invoker<Ret(Args...), Collector> {
     /*! @brief Unsigned integer type. */
     using size_type = typename std::vector<delegate<Ret(Args...)>>::size_type;
     /*! @brief Collector type. */

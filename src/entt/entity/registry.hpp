@@ -21,6 +21,7 @@
 #include "../signal/sigh.hpp"
 #include "entity.hpp"
 #include "entt_traits.hpp"
+#include "query.hpp"
 #include "snapshot.hpp"
 #include "sparse_set.hpp"
 #include "view.hpp"
@@ -1018,19 +1019,20 @@ public:
      * @tparam Component Type of components used to construct the view.
      * @return A newly created standard view.
      */
-    // TODO tmp
+    // TODO priv + doc
     template<auto Has, typename... Exclude>
     static void construct_if(sparse_set<entity_type> *direct, registry &reg, const entity_type entity) {
         if((reg.*Has)(entity) && !(reg.has<Exclude>(entity) || ...)) {
             direct->construct(entity);
         }
     }
-    // TODO tmp
+    // TODO priv + doc
     static void destroy_if(sparse_set<entity_type> *direct, registry &, const entity_type entity) {
         if(direct->has(entity)) {
             direct->destroy(entity);
         }
     }
+    // TODO doc
     template<typename... Component, typename... Exclude>
     entt::view<entity_type, Component...> view(exclude<Exclude...> = {}) {
         static_assert(sizeof...(Component));
@@ -1038,7 +1040,6 @@ public:
         if constexpr(sizeof...(Component) == 1 && sizeof...(Exclude) == 0) {
             return { &assure<Component...>() };
         } else {
-            // TODO tmp
             const auto vtype = view_family::type<type_list<Component...>, type_list<Exclude...>>;
 
             if(!(vtype < views.size())) {
@@ -1067,7 +1068,6 @@ public:
                 }
             }
 
-            // TODO tmp
             return { views[vtype].get(), &assure<Component>()... };
         }
     }
@@ -1077,6 +1077,51 @@ public:
     inline entt::view<entity_type, Component...> view(exclude<Exclude...> = {}) const {
         static_assert(std::conjunction_v<std::is_const<Component>...>);
         return const_cast<registry *>(this)->view<Component...>(exclude<Exclude...>{});
+    }
+
+    /**
+     * @brief Returns a query object for the given components.
+     *
+     * This kind of objects are created on the fly and share with the registry
+     * its internal data structures.<br/>
+     * Feel free to discard a query after the use. Creating and destroying a
+     * query is an incredibly cheap operation because they do not require any
+     * type of initialization.<br/>
+     * As a rule of thumb, storing a query should never be an option.
+     *
+     * Queries do their best to iterate the smallest set of candidate entities.
+     * In fact, they look at the number of entities available for each component
+     * and pick up a reference to the smallest set of candidates to test for the
+     * given components.
+     *
+     * @note
+     * Creating a query for a single component isn't allowed. Consider using a
+     * dedicated view instead.
+     *
+     * @note
+     * Queries are pretty fast. However their performance tend to degenerate
+     * when the number of components to iterate grows up and the most of the
+     * entities have all the given components.<br/>
+     * To get a performance boost, consider using views or policies instead.
+     *
+     * @sa view
+     * @sa view<Entity, Component>
+     * @sa TODO policy
+     *
+     * @tparam Component Type of components used to construct the query.
+     * @return A newly created query.
+     */
+    template<typename... Component>
+    entt::query<Entity, Component...> query() {
+        (assure<Component>(), ...);
+        return { &assure<Component>()... };
+    }
+
+    /*! @copydoc query */
+    template<typename... Component>
+    inline entt::query<entity_type, Component...> query() const {
+        static_assert(std::conjunction_v<std::is_const<Component>...>);
+        return const_cast<registry *>(this)->query<Component...>();
     }
 
     /**

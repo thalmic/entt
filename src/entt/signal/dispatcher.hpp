@@ -31,7 +31,7 @@ namespace entt {
  * @tparam Args Types of arguments to forward along with an event.
  */
 template<typename... Args>
-class dispatcher final {
+class dispatcher {
     using event_family = family<struct internal_dispatcher_event_family>;
 
     template<typename Class, typename Event>
@@ -43,7 +43,7 @@ class dispatcher final {
     };
 
     template<typename Event>
-    struct signal_wrapper final: base_wrapper {
+    struct signal_wrapper: base_wrapper {
         using signal_type = sigh<void(const Event &, Args...)>;
         using sink_type = typename signal_type::sink_type;
 

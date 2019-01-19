@@ -13,6 +13,7 @@
 #include <type_traits>
 #include "../config/config.h"
 #include "entt_traits.hpp"
+#include "policy.hpp"
 #include "sparse_set.hpp"
 
 
@@ -30,7 +31,7 @@ class registry;
  * TODO
  */
 template<typename Entity, typename... Component>
-class view final {
+class view {
     static_assert(sizeof...(Component));
 
     /*! @brief A registry is allowed to create views. */
@@ -39,25 +40,16 @@ class view final {
     template<typename Comp>
     using pool_type = std::conditional_t<std::is_const_v<Comp>, const sparse_set<Entity, std::remove_const_t<Comp>>, sparse_set<Entity, Comp>>;
 
-    using view_type = sparse_set<Entity>;
-    using pattern_type = std::tuple<pool_type<Component> *...>;
-
     // we could use pool_type<Component> *..., but vs complains about it and refuses to compile for unknown reasons (likely a bug)
-    view(view_type *direct, pool_type<Component> *... pools) ENTT_NOEXCEPT
+    view(sparse_set<Entity> *direct, pool_type<Component> *... pools) ENTT_NOEXCEPT
         : direct{direct},
           pools{pools...}
     {}
 
-    template<typename Comp>
-    auto * pool() const ENTT_NOEXCEPT {
-        using comp_type = std::conditional_t<std::disjunction_v<std::is_same<Comp, Component>...>, Comp, std::remove_const_t<Comp>>;
-        return std::get<pool_type<comp_type> *>(pools);
-    }
-
 public:
-    using entity_type = typename view_type::entity_type;
-    using size_type = typename view_type::size_type;
-    using iterator_type = typename view_type::iterator_type;
+    using entity_type = typename sparse_set<Entity>::entity_type;
+    using size_type = typename sparse_set<entity_type>::size_type;
+    using iterator_type = typename sparse_set<entity_type>::iterator_type;
 
     view(const view &) = default;
     view(view &&) = default;
@@ -78,11 +70,11 @@ public:
     }
 
     iterator_type begin() const ENTT_NOEXCEPT {
-        return direct->view_type::begin();
+        return direct->begin();
     }
 
     iterator_type end() const ENTT_NOEXCEPT {
-        return direct->view_type::end();
+        return direct->end();
     }
 
     iterator_type find(const entity_type entity) const ENTT_NOEXCEPT {
@@ -90,11 +82,11 @@ public:
     }
 
     entity_type operator[](const size_type pos) const ENTT_NOEXCEPT {
-        return direct->view_type::begin()[pos];
+        return direct->begin()[pos];
     }
 
     bool contains(const entity_type entity) const ENTT_NOEXCEPT {
-        return direct->has(entity) && (direct->view_type::data()[direct->view_type::get(entity)] == entity);
+        return direct->has(entity) && (direct->data()[direct->get(entity)] == entity);
     }
 
     template<typename... Comp>
@@ -104,7 +96,7 @@ public:
 
         if constexpr(sizeof...(Comp) == 1) {
             static_assert(std::disjunction_v<std::is_same<Comp..., Component>..., std::is_same<std::remove_const_t<Comp>..., Component>...>);
-            return (pool<Comp>()->get(entity), ...);
+            return (std::get<pool_type<Comp> *>(pools)->get(entity), ...);
         } else {
             return std::tuple<Comp &...>{get<Comp>(entity)...};
         }
@@ -115,32 +107,32 @@ public:
         // TODO POC with wrong data (close to its final version, but for the pivot value)
         //
         // for(int i = 0; i < direct->size(); i++) {
-        //     auto raw = std::make_tuple(pool<Component>()->begin()...);
+        //     auto raw = std::make_tuple(std::get<pool_type<Component> *>(pools)->begin()...);
         //
         //     if constexpr(std::is_invocable_v<Func, std::add_lvalue_reference_t<Component>...>) {
-        //         func(*(std::get<decltype(pool<Component>()->begin())>(raw)++)...);
+        //         func(*(std::get<decltype(std::get<pool_type<Component> *>(pools)->begin())>(raw)++)...);
         //     } else {
-        //         func(direct->data()[i], *(std::get<decltype(pool<Component>()->begin())>(raw)++)...);
+        //         func(direct->data()[i], *(std::get<decltype(std::get<pool_type<Component> *>(pools)->begin())>(raw)++)...);
         //     }
         // }
 
-        std::for_each(direct->view_type::begin(), direct->view_type::end(), [func = std::move(func), this](const auto entity) mutable {
+        std::for_each(direct->begin(), direct->end(), [func = std::move(func), this](const auto entity) mutable {
             if constexpr(std::is_invocable_v<Func, std::add_lvalue_reference_t<Component>...>) {
-                func(pool<Component>()->get(entity)...);
+                func(std::get<pool_type<Component> *>(pools)->get(entity)...);
             } else {
-                func(entity, pool<Component>()->get(entity)...);
+                func(entity, std::get<pool_type<Component> *>(pools)->get(entity)...);
             }
         });
     }
 
     template<typename Comp>
     void sort() const {
-        direct->respect(*pool<Comp>());
+        direct->respect(*std::get<pool_type<Comp> *>(pools));
     }
 
 private:
-    view_type *direct;
-    const pattern_type pools;
+    sparse_set<entity_type> *direct;
+    const std::tuple<pool_type<Component> *...> pools;
 };
 
 
@@ -181,11 +173,10 @@ private:
  * @tparam Component Type of component iterated by the view.
  */
 template<typename Entity, typename Component>
-class view<Entity, Component> final {
+class view<Entity, Component> {
     /*! @brief A registry is allowed to create views. */
     friend class registry<Entity>;
 
-    using view_type = sparse_set<Entity>;
     using pool_type = std::conditional_t<std::is_const_v<Component>, const sparse_set<Entity, std::remove_const_t<Component>>, sparse_set<Entity, Component>>;
 
     view(pool_type *pool) ENTT_NOEXCEPT
@@ -200,7 +191,7 @@ public:
     /*! @brief Unsigned integer type. */
     using size_type = typename pool_type::size_type;
     /*! @brief Input iterator type. */
-    using iterator_type = typename view_type::iterator_type;
+    using iterator_type = typename sparse_set<entity_type>::iterator_type;
 
     /*! @brief Default copy constructor. */
     view(const view &) = default;
@@ -279,7 +270,7 @@ public:
      * @return An iterator to the first entity that has the given component.
      */
     iterator_type begin() const ENTT_NOEXCEPT {
-        return pool->view_type::begin();
+        return pool->sparse_set<entity_type>::begin();
     }
 
     /**
@@ -298,7 +289,7 @@ public:
      * given component.
      */
     iterator_type end() const ENTT_NOEXCEPT {
-        return pool->view_type::end();
+        return pool->sparse_set<entity_type>::end();
     }
 
     /**
@@ -317,7 +308,7 @@ public:
      * @return The identifier that occupies the given position.
      */
     entity_type operator[](const size_type pos) const ENTT_NOEXCEPT {
-        return pool->view_type::begin()[pos];
+        return pool->sparse_set<entity_type>::begin()[pos];
     }
 
     /**
@@ -326,7 +317,7 @@ public:
      * @return True if the view contains the given entity, false otherwise.
      */
     bool contains(const entity_type entity) const ENTT_NOEXCEPT {
-        return pool->has(entity) && (pool->data()[pool->view_type::get(entity)] == entity);
+        return pool->has(entity) && (pool->data()[pool->sparse_set<entity_type>::get(entity)] == entity);
     }
 
     /**
@@ -372,7 +363,7 @@ public:
         if constexpr(std::is_invocable_v<Func, std::add_lvalue_reference_t<Component>>) {
             std::for_each(pool->begin(), pool->end(), std::move(func));
         } else {
-            std::for_each(pool->view_type::begin(), pool->view_type::end(), [func = std::move(func), raw = pool->begin()](const auto entity) mutable {
+            std::for_each(pool->sparse_set<entity_type>::begin(), pool->sparse_set<entity_type>::end(), [func = std::move(func), raw = pool->begin()](const auto entity) mutable {
                 func(entity, *(raw++));
             });
         }
@@ -428,16 +419,13 @@ class runtime_view {
     /*! @brief A registry is allowed to create views. */
     friend class registry<Entity>;
 
-    using view_type = sparse_set<Entity>;
-    using underlying_iterator_type = typename view_type::iterator_type;
-    using pattern_type = std::vector<const view_type *>;
-    using extent_type = typename view_type::size_type;
-    using traits_type = entt_traits<Entity>;
+    using iter_type = typename sparse_set<Entity>::iterator_type;
+    using extent_type = typename sparse_set<Entity>::size_type;
 
     class iterator {
         friend class runtime_view<Entity>;
 
-        iterator(underlying_iterator_type begin, underlying_iterator_type end, const view_type * const *first, const view_type * const *last, extent_type extent) ENTT_NOEXCEPT
+        iterator(iter_type begin, iter_type end, const sparse_set<Entity> * const *first, const sparse_set<Entity> * const *last, extent_type extent) ENTT_NOEXCEPT
             : begin{begin},
               end{end},
               first{first},
@@ -451,7 +439,7 @@ class runtime_view {
 
         bool valid() const ENTT_NOEXCEPT {
             const auto entity = *begin;
-            const auto sz = size_type(entity & traits_type::entity_mask);
+            const auto sz = size_type(entity & entt_traits<Entity>::entity_mask);
 
             return sz < extent && std::all_of(first, last, [entity](const auto *view) {
                 return view->fast(entity);
@@ -459,10 +447,10 @@ class runtime_view {
         }
 
     public:
-        using difference_type = typename underlying_iterator_type::difference_type;
-        using value_type = typename underlying_iterator_type::value_type;
-        using pointer = typename underlying_iterator_type::pointer;
-        using reference = typename underlying_iterator_type::reference;
+        using difference_type = typename iter_type::difference_type;
+        using value_type = typename iter_type::value_type;
+        using pointer = typename iter_type::pointer;
+        using reference = typename iter_type::reference;
         using iterator_category = std::forward_iterator_tag;
 
         iterator() ENTT_NOEXCEPT = default;
@@ -496,14 +484,14 @@ class runtime_view {
         }
 
     private:
-        underlying_iterator_type begin;
-        underlying_iterator_type end;
-        const view_type * const *first;
-        const view_type * const *last;
+        iter_type begin;
+        iter_type end;
+        const sparse_set<Entity> * const *first;
+        const sparse_set<Entity> * const *last;
         extent_type extent;
     };
 
-    runtime_view(pattern_type others) ENTT_NOEXCEPT
+    runtime_view(std::vector<const sparse_set<Entity> *> others) ENTT_NOEXCEPT
         : pools{std::move(others)}
     {
         const auto it = std::min_element(pools.begin(), pools.end(), [](const auto *lhs, const auto *rhs) {
@@ -534,9 +522,9 @@ class runtime_view {
 
 public:
     /*! @brief Underlying entity identifier. */
-    using entity_type = typename view_type::entity_type;
+    using entity_type = typename sparse_set<Entity>::entity_type;
     /*! @brief Unsigned integer type. */
-    using size_type = typename view_type::size_type;
+    using size_type = typename sparse_set<entity_type>::size_type;
     /*! @brief Input iterator type. */
     using iterator_type = iterator;
 
@@ -650,7 +638,7 @@ public:
     }
 
 private:
-    pattern_type pools;
+    std::vector<const sparse_set<entity_type> *> pools;
 };
 
 

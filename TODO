@@ -24,5 +24,9 @@
 
 Ready to go:
 * policy based views
-* update documentation
-* update tests
+* preferred approach (hints):
+  - registry.policy(induce<A, B>::split<C>).view<A, B, C>()
+  - registry.policy(induce<A, B>::split<C>).view<A, B>(exclude<C>())
+  - registry.policy(induce<A, B>::split<C>).view<A, B>()
+* update documentation: view, query, policy
+* update tests: view, query, policy
