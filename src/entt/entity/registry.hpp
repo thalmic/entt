@@ -1021,7 +1021,7 @@ public:
     // TODO tmp
     template<auto Has, typename... Exclude>
     static void construct_if(sparse_set<entity_type> *direct, registry &reg, const entity_type entity) {
-        if((reg.*Has)(entity) && !(reg.has<Exclude>(entity) || ...)) { //    !((reg.*Exclude)(entity) || ...)) {
+        if((reg.*Has)(entity) && !(reg.has<Exclude>(entity) || ...)) {
             direct->construct(entity);
         }
     }
@@ -1029,23 +1029,6 @@ public:
     static void destroy_if(sparse_set<entity_type> *direct, registry &, const entity_type entity) {
         if(direct->has(entity)) {
             direct->destroy(entity);
-        }
-    }
-    // TODO
-    template<typename... Component>
-    static void refresh_if(sparse_set<Entity, std::array<typename sparse_set<Entity>::size_type, sizeof...(Component)>> *direct, registry &reg, const typename component_family::family_type ctype) {
-        auto index = sizeof...(Component);
-        decltype(index) cnt{};
-
-        ((index = (component_family::type<Component> == ctype) ? cnt++ : (static_cast<void>(++cnt), index)), ...);
-
-        if(index != sizeof...(Component)) {
-            auto begin = direct->sparse_set<Entity>::begin();
-            const auto &cpool = *reg.pools[ctype];
-
-            for(auto &&indexes: *direct) {
-                indexes[index] = cpool.get(*(begin++));
-            }
         }
     }
     template<typename... Component, typename... Exclude>
@@ -1085,7 +1068,7 @@ public:
             }
 
             // TODO tmp
-            return entt::view<entity_type, Component...>{views[vtype].get(), 0, &assure<Component>()...};
+            return { views[vtype].get(), &assure<Component>()... };
         }
     }
 
