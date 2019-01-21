@@ -13,7 +13,6 @@
 #include <type_traits>
 #include "../config/config.h"
 #include "entt_traits.hpp"
-#include "policy.hpp"
 #include "sparse_set.hpp"
 
 
@@ -28,7 +27,12 @@ class registry;
 
 
 /**
+ * @brief TODO
+ *
  * TODO
+ *
+ * @tparam Entity TODO
+ * @tparam Component TODO
  */
 template<typename Entity, typename... Component>
 class view {
@@ -47,48 +51,124 @@ class view {
     {}
 
 public:
+    /*! @brief TODO */
     using entity_type = typename sparse_set<Entity>::entity_type;
+    /*! @brief TODO */
     using size_type = typename sparse_set<entity_type>::size_type;
+    /*! @brief TODO */
     using iterator_type = typename sparse_set<entity_type>::iterator_type;
 
+    /*! @brief TODO */
     view(const view &) = default;
+    /*! @brief TODO */
     view(view &&) = default;
 
+    /*! @brief TODO @return TODO */
     view & operator=(const view &) = default;
+    /*! @brief TODO @return TODO @return TODO */
     view & operator=(view &&) = default;
 
+    /**
+     * @brief TODO
+     *
+     * TODO
+     *
+     * @return TODO
+     */
     size_type size() const ENTT_NOEXCEPT {
         return direct->size();
     }
 
+    /**
+     * @brief TODO
+     *
+     * TODO
+     *
+     * @return TODO
+     */
     bool empty() const ENTT_NOEXCEPT {
         return direct->empty();
     }
 
+    /**
+     * @brief TODO
+     *
+     * TODO
+     *
+     * @return TODO
+     */
     const entity_type * data() const ENTT_NOEXCEPT {
         return direct->data();
     }
 
+    /**
+     * @brief TODO
+     *
+     * TODO
+     *
+     * @return TODO
+     */
     iterator_type begin() const ENTT_NOEXCEPT {
         return direct->begin();
     }
 
+    /**
+     * @brief TODO
+     *
+     * TODO
+     *
+     * @return TODO
+     */
     iterator_type end() const ENTT_NOEXCEPT {
         return direct->end();
     }
 
+    /**
+     * @brief TODO
+     *
+     * TODO
+     *
+     * @param entity TODO
+     * @return TODO
+     */
     iterator_type find(const entity_type entity) const ENTT_NOEXCEPT {
-        return direct->find(entity);
+        const auto it = direct->find(entity);
+        return (it != end() && *it == entity) ? it : end();
     }
 
+    /**
+     * @brief TODO
+     *
+     * TODO
+     *
+     * @param pos TODO
+     * @return TODO
+     */
     entity_type operator[](const size_type pos) const ENTT_NOEXCEPT {
         return direct->begin()[pos];
     }
 
+    /**
+     * @brief TODO
+     *
+     * TODO
+     *
+     * @param entity TODO
+     * @return TODO
+     */
     bool contains(const entity_type entity) const ENTT_NOEXCEPT {
-        return direct->has(entity) && (direct->data()[direct->get(entity)] == entity);
+        return !(find(entity) == end());
     }
 
+    /**
+     * @brief TODO
+     *
+     * TODO
+     *
+     * @tparam Comp TODO
+     * @param entity TODO
+     * @return TODO
+     */
     template<typename... Comp>
     std::conditional_t<sizeof...(Comp) == 1, std::tuple_element_t<0, std::tuple<Comp &...>>, std::tuple<Comp &...>>
     get([[maybe_unused]] const entity_type entity) const ENTT_NOEXCEPT {
@@ -102,20 +182,17 @@ public:
         }
     }
 
+    /**
+     * @brief TODO
+     *
+     * TODO
+     *
+     * @tparam Func TODO
+     * @param func TODO
+     * @return TODO
+     */
     template<typename Func>
     inline void each(Func func) const {
-        // TODO POC with wrong data (close to its final version, but for the pivot value)
-        //
-        // for(int i = 0; i < direct->size(); i++) {
-        //     auto raw = std::make_tuple(std::get<pool_type<Component> *>(pools)->begin()...);
-        //
-        //     if constexpr(std::is_invocable_v<Func, std::add_lvalue_reference_t<Component>...>) {
-        //         func(*(std::get<decltype(std::get<pool_type<Component> *>(pools)->begin())>(raw)++)...);
-        //     } else {
-        //         func(direct->data()[i], *(std::get<decltype(std::get<pool_type<Component> *>(pools)->begin())>(raw)++)...);
-        //     }
-        // }
-
         std::for_each(direct->begin(), direct->end(), [func = std::move(func), this](const auto entity) mutable {
             if constexpr(std::is_invocable_v<Func, std::add_lvalue_reference_t<Component>...>) {
                 func(std::get<pool_type<Component> *>(pools)->get(entity)...);
@@ -125,6 +202,13 @@ public:
         });
     }
 
+    /**
+     * @brief TODO
+     *
+     * TODO
+     *
+     * @tparam Comp TODO
+     */
     template<typename Comp>
     void sort() const {
         direct->respect(*std::get<pool_type<Comp> *>(pools));
@@ -132,7 +216,7 @@ public:
 
 private:
     sparse_set<entity_type> *direct;
-    const std::tuple<pool_type<Component> *...> pools;
+    std::tuple<pool_type<Component> *...> pools;
 };
 
 
@@ -299,7 +383,8 @@ public:
      * iterator otherwise.
      */
     iterator_type find(const entity_type entity) const ENTT_NOEXCEPT {
-        return pool->find(entity);
+        const auto it = pool->find(entity);
+        return (it != end() && *it == entity) ? it : end();
     }
 
     /**
@@ -317,7 +402,7 @@ public:
      * @return True if the view contains the given entity, false otherwise.
      */
     bool contains(const entity_type entity) const ENTT_NOEXCEPT {
-        return pool->has(entity) && (pool->data()[pool->sparse_set<entity_type>::get(entity)] == entity);
+        return !(find(entity) == end());
     }
 
     /**

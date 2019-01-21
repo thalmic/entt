@@ -299,8 +299,9 @@ public:
      */
     iterator_type find(const entity_type entity) const ENTT_NOEXCEPT {
         const auto *view = candidate();
-        iterator_type it{unchecked(view), view->find(entity), view->end()};
-        return (it != end() && *it == entity) ? it : end();
+        const auto last = end();
+        const iterator_type it{unchecked(view), view->find(entity), view->end()};
+        return (it != last && *it == entity) ? it : last;
     }
 
     /**
@@ -309,9 +310,7 @@ public:
      * @return True if the query contains the given entity, false otherwise.
      */
     bool contains(const entity_type entity) const ENTT_NOEXCEPT {
-        const auto sz = size_type(entity & traits_type::entity_mask);
-        const auto extent = std::min({ std::get<pool_type<Component> *>(pools)->extent()... });
-        return ((sz < extent) && ... && (std::get<pool_type<Component> *>(pools)->has(entity) && (std::get<pool_type<Component> *>(pools)->data()[std::get<pool_type<Component> *>(pools)->sparse_set<entity_type>::get(entity)] == entity)));
+        return !(find(entity) == end());
     }
 
     /**
@@ -369,7 +368,7 @@ public:
     }
 
 private:
-    const std::tuple<pool_type<Component> *...> pools;
+    std::tuple<pool_type<Component> *...> pools;
 };
 
 

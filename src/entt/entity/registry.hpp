@@ -48,6 +48,19 @@ class registry {
     using component_signal_type = sigh<void(registry &, const Entity)>;
     using traits_type = entt_traits<Entity>;
 
+    template<auto Has, typename... Exclude>
+    static void construct_if(sparse_set<Entity> *direct, registry &reg, const Entity entity) {
+        if((reg.*Has)(entity) && !(reg.has<Exclude>(entity) || ...)) {
+            direct->construct(entity);
+        }
+    }
+
+    static void destroy_if(sparse_set<Entity> *direct, registry &, const Entity entity) {
+        if(direct->has(entity)) {
+            direct->destroy(entity);
+        }
+    }
+
     template<typename Component>
     auto & assure() const {
         const auto ctype = component_family::type<Component>;
@@ -907,7 +920,7 @@ public:
      * The signature of the function should be equivalent to the following:
      *
      * @code{.cpp}
-     * void(const entity_type);
+     * void(const Entity);
      * @endcode
      *
      * This function is fairly slow and should not be used frequently.<br/>
@@ -969,7 +982,7 @@ public:
      * The signature of the function should be equivalent to the following:
      *
      * @code{.cpp}
-     * void(const entity_type);
+     * void(const Entity);
      * @endcode
      *
      * This function can be very slow and should not be used frequently.
@@ -989,50 +1002,36 @@ public:
     }
 
     /**
-     * @brief Returns a standard view for the given components.
+     * @brief Returns a view for the given components.
      *
-     * This kind of views are created on the fly and share with the registry its
-     * internal data structures.<br/>
+     * Views are created on the fly and share with the registry its internal
+     * data structures.<br/>
      * Feel free to discard a view after the use. Creating and destroying a view
      * is an incredibly cheap operation because they do not require any type of
      * initialization.<br/>
      * As a rule of thumb, storing a view should never be an option.
      *
-     * Standard views do their best to iterate the smallest set of candidate
-     * entities. In particular:
-     *
-     * * Single component views are incredibly fast and iterate a packed array
-     *   of entities, all of which has the given component.
-     * * Multi component views look at the number of entities available for each
-     *   component and pick up a reference to the smallest set of candidates to
-     *   test for the given components.
-     *
      * @note
-     * Multi component views are pretty fast. However their performance tend to
-     * degenerate when the number of components to iterate grows up and the most
-     * of the entities have all the given components.
+     * In case of multi component views:
+     * * There is an initialization step at the first use. That's due to the
+     *   fact that the internal data structures of the registry used for this
+     *   kind of views don't exist yet the very first time they are requested.
+     * * Each kind of view requires a dedicated data structure that is allocated
+     *   within the registry and it increases a bit memory pressure.
+     * * Internal data structures used to construct these views must be kept
+     *   updated and it slightly affects construction and destruction of
+     *   components.
      *
+     * For a slower but less impactful alternative, consider to use a query.
+     *
+     * @sa query
      * @sa view
-     * @sa view<entity_type, Component>
-     * @sa runtime_view
+     * @sa view<Entity, Component>
      *
      * @tparam Component Type of components used to construct the view.
-     * @return A newly created standard view.
+     * @tparam Exclude TODO
+     * @return A newly created view.
      */
-    // TODO priv + doc
-    template<auto Has, typename... Exclude>
-    static void construct_if(sparse_set<entity_type> *direct, registry &reg, const entity_type entity) {
-        if((reg.*Has)(entity) && !(reg.has<Exclude>(entity) || ...)) {
-            direct->construct(entity);
-        }
-    }
-    // TODO priv + doc
-    static void destroy_if(sparse_set<entity_type> *direct, registry &, const entity_type entity) {
-        if(direct->has(entity)) {
-            direct->destroy(entity);
-        }
-    }
-    // TODO doc
     template<typename... Component, typename... Exclude>
     entt::view<entity_type, Component...> view(exclude<Exclude...> = {}) {
         static_assert(sizeof...(Component));
@@ -1045,6 +1044,8 @@ public:
             if(!(vtype < views.size())) {
                 views.resize(vtype+1);
             }
+
+            // TODO reduce number of calls to assure to a minimum
 
             if(!views[vtype]) {
                 views[vtype] = std::make_unique<sparse_set<entity_type>>();
@@ -1113,7 +1114,6 @@ public:
      */
     template<typename... Component>
     entt::query<Entity, Component...> query() {
-        (assure<Component>(), ...);
         return { &assure<Component>()... };
     }
 
@@ -1127,20 +1127,20 @@ public:
     /**
      * @brief Returns a runtime view for the given components.
      *
-     * This kind of views are created on the fly and share with the registry its
+     * Runtime views are created on the fly and share with the registry its
      * internal data structures.<br/>
      * Users should throw away the view after use. Fortunately, creating and
      * destroying a view is an incredibly cheap operation because they do not
      * require any type of initialization.<br/>
      * As a rule of thumb, storing a view should never be an option.
      *
-     * Runtime views are well suited when users want to construct a view from
+     * Runtime views are to be used when users want to construct a view from
      * some external inputs and don't know at compile-time what are the required
      * components.<br/>
      * This is particularly well suited to plugin systems and mods in general.
      *
      * @sa view
-     * @sa view<entity_type, Component>
+     * @sa view<Entity, Component>
      * @sa runtime_view
      *
      * @tparam It Type of forward iterator.
