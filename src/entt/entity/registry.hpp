@@ -1045,8 +1045,6 @@ public:
                 views.resize(vtype+1);
             }
 
-            // TODO reduce number of calls to assure to a minimum
-
             if(!views[vtype]) {
                 views[vtype] = std::make_unique<sparse_set<entity_type>>();
                 auto *direct = views[vtype].get();
@@ -1058,7 +1056,7 @@ public:
                 ((sighs[component_family::type<Exclude>].first.sink().template connect<&registry::destroy_if>(direct)), ...);
                 ((sighs[component_family::type<Component>].second.sink().template connect<&registry::destroy_if>(direct)), ...);
 
-                const auto *candidate = std::min({ static_cast<const sparse_set<entity_type> *>(&assure<Component>())... }, [](const auto *lhs, const auto *rhs) {
+                const auto *candidate = std::min({ pools[component_family::type<Component>].get()... }, [](const auto *lhs, const auto *rhs) {
                     return lhs->size() < rhs->size();
                 });
 
