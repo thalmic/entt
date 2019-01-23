@@ -186,10 +186,18 @@ delegate.connect<&my_struct::f>(&instance);
 
 The delegate class accepts also data members if required. In this case, the
 function type of the delegate is such that the parameter list is empty and the
-the value of the data member is at least convertible to the return type.
+value of the data member is at least convertible to the return type.<br/>
+Finally, it can work with invokable objects in general (lambdas or functors), as
+long as they are trivially destructible and their sizes fit the one of `void *`.
+As an example, a lambda that captures a pointer or an integer value can be used
+with a delegate:
 
-A `disconnect` counterpart isn't provided. Instead, there exists a `reset`
-member function to use to clear a delegate.<br/>
+```cpp
+delegate.connect([value = int_var](int i) { return value * i; });
+```
+
+Aside the `connect`, a `disconnect` counterpart isn't provided. Instead, there
+exists a `reset` member function to use to clear a delegate.<br/>
 To know if it's empty instead, the delegate can be used explicitly in every
 conditional statement:
 

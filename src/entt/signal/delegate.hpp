@@ -124,6 +124,18 @@ public:
     }
 
     /**
+     * @brief Constructs a delegate and connects a lambda or a functor to it.
+     * @tparam Invokable Type of lambda or functor to connect.
+     * @param invokable A valid instance of the given type.
+     */
+    template<typename Invokable>
+    delegate(Invokable invokable) ENTT_NOEXCEPT
+        : delegate{}
+    {
+        connect(std::move(invokable));
+    }
+
+    /**
      * @brief Connects a free function to a delegate.
      * @tparam Function A valid free function pointer.
      */
@@ -169,6 +181,25 @@ public:
         fn = [](storage_type &storage, Args... args) -> Ret {
             Type &value_or_instance = *reinterpret_cast<Type *>(&storage);
             return std::invoke(Candidate, value_or_instance, args...);
+        };
+    }
+
+    /**
+     * @brief Connects a lambda or a functor to a delegate.
+     * @tparam Invokable Type of lambda or functor to connect.
+     * @param invokable A valid instance of the given type.
+     */
+    template<typename Invokable>
+    void connect(Invokable invokable) ENTT_NOEXCEPT {
+        static_assert(sizeof(Invokable) < sizeof(void *));
+        static_assert(std::is_class_v<Invokable>);
+        static_assert(std::is_trivially_destructible_v<Invokable>);
+        static_assert(std::is_invocable_r_v<Ret, Invokable, Args...>);
+        new (&storage) Invokable{std::move(invokable)};
+
+        fn = [](storage_type &storage, Args... args) -> Ret {
+            Invokable &invokable = *reinterpret_cast<Invokable *>(&storage);
+            return std::invoke(invokable, args...);
         };
     }
 
@@ -288,6 +319,20 @@ delegate(connect_arg_t<Function>) ENTT_NOEXCEPT
 template<auto Candidate, typename Type>
 delegate(connect_arg_t<Candidate>, Type) ENTT_NOEXCEPT
 -> delegate<std::remove_pointer_t<decltype(internal::to_function_pointer(Candidate, std::declval<Type>()))>>;
+
+
+/**
+ * @brief Deduction guideline.
+ *
+ * It allows to deduce the function type of the delegate directly from a lambda
+ * or a functor provided to the constructor.
+ *
+ * @tparam Invokable Type of lambda or functor to connect.
+ * @param invokable A valid instance of the given type.
+ */
+template<typename Invokable>
+delegate(Invokable invokable) ENTT_NOEXCEPT
+-> delegate<std::remove_pointer_t<decltype(internal::to_function_pointer(&Invokable::operator(), &invokable))>>;
 
 
 }
