@@ -25,16 +25,16 @@ template<typename Ret, typename... Args>
 auto to_function_pointer(Ret(*)(Args...)) -> Ret(*)(Args...);
 
 
-template<typename Class, typename Ret, typename... Args>
-auto to_function_pointer(Ret(Class:: *)(Args...)) -> Ret(*)(Args...);
+template<typename Ret, typename... Args, typename Type, typename Value>
+auto to_function_pointer(Ret(*)(Type, Args...), Value) -> Ret(*)(Args...);
 
 
 template<typename Class, typename Ret, typename... Args>
-auto to_function_pointer(Ret(Class:: *)(Args...) const) -> Ret(*)(Args...);
+auto to_function_pointer(Ret(Class:: *)(Args...), Class *) -> Ret(*)(Args...);
 
 
-template<auto Func>
-using function_type = std::remove_pointer_t<decltype(to_function_pointer(Func))>;
+template<typename Class, typename Ret, typename... Args>
+auto to_function_pointer(Ret(Class:: *)(Args...) const, Class *) -> Ret(*)(Args...);
 
 
 }
@@ -107,16 +107,20 @@ public:
     }
 
     /**
-     * @brief Constructs a delegate and connects a member function to it.
-     * @tparam Member Member function to connect to the delegate.
-     * @tparam Class Type of class to which the member function belongs.
-     * @param instance A valid instance of type pointer to `Class`.
+     * @brief Constructs a delegate and connects a member function for a given
+     * instance or a curried free function to it.
+     * @tparam Candidate Member function or curried free function to connect to
+     * the delegate.
+     * @tparam Type Type of class to which the member function belongs or type
+     * of value used for currying.
+     * @param value_or_instance A valid pointer to an instance of class type or
+     * the value to use for currying.
      */
-    template<auto Member, typename Class, typename = std::enable_if_t<std::is_member_function_pointer_v<decltype(Member)>>>
-    delegate(connect_arg_t<Member>, Class *instance) ENTT_NOEXCEPT
+    template<auto Candidate, typename Type>
+    delegate(connect_arg_t<Candidate>, Type value_or_instance) ENTT_NOEXCEPT
         : delegate{}
     {
-        connect<Member>(instance);
+        connect<Candidate>(value_or_instance);
     }
 
     /**
@@ -260,27 +264,30 @@ bool operator!=(const delegate<Ret(Args...)> &lhs, const delegate<Ret(Args...)> 
 /**
  * @brief Deduction guideline.
  *
- * It allows to deduce the function type of the delegate directly from the
+ * It allows to deduce the function type of the delegate directly from a
  * function provided to the constructor.
  *
  * @tparam Function A valid free function pointer.
  */
 template<auto Function>
-delegate(connect_arg_t<Function>) ENTT_NOEXCEPT -> delegate<internal::function_type<Function>>;
+delegate(connect_arg_t<Function>) ENTT_NOEXCEPT
+-> delegate<std::remove_pointer_t<decltype(internal::to_function_pointer(Function))>>;
 
 
 /**
-
  * @brief Deduction guideline.
  *
- * It allows to deduce the function type of the delegate directly from the
- * member function provided to the constructor.
+ * It allows to deduce the function type of the delegate directly from a member
+ * function or a curried free function provided to the constructor.
  *
- * @tparam Member Member function to connect to the delegate.
- * @tparam Class Type of class to which the member function belongs.
+ * @tparam Candidate Member function or curried free function to connect to
+ * the delegate.
+ * @tparam Type Type of class to which the member function belongs or type
+ * of value used for currying.
  */
-template<auto Member, typename Class>
-delegate(connect_arg_t<Member>, Class *) ENTT_NOEXCEPT -> delegate<internal::function_type<Member>>;
+template<auto Candidate, typename Type>
+delegate(connect_arg_t<Candidate>, Type) ENTT_NOEXCEPT
+-> delegate<std::remove_pointer_t<decltype(internal::to_function_pointer(Candidate, std::declval<Type>()))>>;
 
 
 }

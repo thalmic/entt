@@ -21,6 +21,7 @@
 #include "../signal/sigh.hpp"
 #include "entity.hpp"
 #include "entt_traits.hpp"
+#include "policy.hpp"
 #include "query.hpp"
 #include "snapshot.hpp"
 #include "sparse_set.hpp"
@@ -1076,6 +1077,32 @@ public:
     inline entt::view<entity_type, Component...> view(exclude<Exclude...> = {}) const {
         static_assert(std::conjunction_v<std::is_const<Component>...>);
         return const_cast<registry *>(this)->view<Component...>(exclude<Exclude...>{});
+    }
+
+    /**
+     * TODO move somewhere else + integrate with other policies + aliases like induce?
+     * ==> tmp, poc test
+     */
+    template<typename... Induce>
+    void policy(type_list<Induce...>) {
+        // TODO assert non-conflicting policies
+        (assure<Induce>(), ...);
+        // TODO
+    }
+
+    /**
+     * TODO
+     */
+    template<typename... Component, typename... Exclude>
+    entt::policy<entity_type, Component...> policy(exclude<Exclude...> = {}) {
+        // TODO
+    }
+
+    /*! @copydoc view */
+    template<typename... Component, typename... Exclude>
+    inline entt::policy<entity_type, Component...> policy(exclude<Exclude...> = {}) const {
+        static_assert(std::conjunction_v<std::is_const<Component>...>);
+        return const_cast<registry *>(this)->policy<Component...>(exclude<Exclude...>{});
     }
 
     /**
