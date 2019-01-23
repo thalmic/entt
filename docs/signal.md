@@ -184,10 +184,14 @@ my_struct instance;
 delegate.connect<&my_struct::f>(&instance);
 ```
 
-It hasn't a `disconnect` counterpart. Instead, there exists a `reset` member
-function to clear it.<br/>
-To know if a delegate is empty, it can be used explicitly in every conditional
-statement:
+The delegate class accepts also data members if required. In this case, the
+function type of the delegate is such that the parameter list is empty and the
+the value of the data member is at least convertible to the return type.
+
+A `disconnect` counterpart isn't provided. Instead, there exists a `reset`
+member function to use to clear a delegate.<br/>
+To know if it's empty instead, the delegate can be used explicitly in every
+conditional statement:
 
 ```cpp
 if(delegate) {

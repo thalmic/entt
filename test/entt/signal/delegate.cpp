@@ -22,6 +22,9 @@ struct delegate_functor {
     int identity(int i) const {
         return i;
     }
+
+    static const int static_value = 3;
+    const int data_member = 42;
 };
 
 struct const_nonconst_noexcept {
@@ -67,6 +70,15 @@ TEST(Delegate, Functionalities) {
     ASSERT_EQ(ff_del, entt::delegate<int(int)>{});
     ASSERT_EQ(mf_del, entt::delegate<int(int)>{});
     ASSERT_EQ(ff_del, mf_del);
+}
+
+TEST(Delegate, DataMembers) {
+    entt::delegate<double()> delegate;
+    delegate_functor functor;
+
+    delegate.connect<&delegate_functor::data_member>(&functor);
+
+    ASSERT_EQ(delegate(), 42);
 }
 
 TEST(Delegate, Comparison) {
