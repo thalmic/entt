@@ -935,8 +935,8 @@ public:
     template<typename... Args>
     std::enable_if_t<std::is_constructible<Type, Args...>::value, object_type &>
     construct(const entity_type entity, Args &&... args) {
-        underlying_type::construct(entity);
         instances.emplace_back(std::forward<Args>(args)...);
+        underlying_type::construct(entity);
         return instances.back();
     }
 
